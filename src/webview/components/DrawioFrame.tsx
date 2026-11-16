@@ -11,11 +11,11 @@ const TIMEOUT_MS = 60000;
 export type DrawioMessage =
   | { event: 'init' }
   | { event: 'load' }
-  | { event: 'save'; xml: string }
+  | { event: 'save' | 'autosave'; xml: string }
   | { event: 'exit' }
   | { event: 'export'; data: string }
   | { event: 'error'; message: string };
-export type DrawioSessionState = 'initializing' | 'loading' | 'ready' | 'exporting' | 'closed';
+export type DrawioSessionState = 'initializing' | 'loading' | 'ready' | 'saving' | 'exporting' | 'closed';
 
 /** The official proto=json transport sends JSON strings, not trusted objects. */
 export function parseDrawioMessage(data: unknown): DrawioMessage | null {
@@ -31,8 +31,9 @@ export function parseDrawioMessage(data: unknown): DrawioMessage | null {
     case 'load': return typeof value.error === 'string'
       ? { event: 'error', message: value.error.slice(0, 1000) } : { event: 'load' };
     case 'exit': return { event: 'exit' };
+    case 'autosave':
     case 'save': return typeof value.xml === 'string' && value.xml.length <= DRAWIO_MAX_XML
-      ? { event: 'save', xml: value.xml } : null;
+      ? { event: value.event, xml: value.xml } : null;
     case 'export': return value.format === 'svg' && typeof value.data === 'string' && value.data.length <= MAX_MESSAGE
       ? { event: 'export', data: value.data } : null;
     case 'error': return { event: 'error', message: typeof value.message === 'string' ? value.message.slice(0, 1000) : 'draw.io runtime error' };
@@ -53,7 +54,7 @@ export function acceptDrawioMessage(
   if (message.event === 'init') return state === 'initializing' ? message : null;
   if (message.event === 'load') return state === 'loading' ? message : null;
   if (message.event === 'export') return state === 'exporting' ? message : null;
-  if (message.event === 'save' || message.event === 'exit') return state === 'ready' ? message : null;
+  if (message.event === 'save' || message.event === 'autosave' || message.event === 'exit') return state === 'ready' ? message : null;
   return message;
 }
 
@@ -84,6 +85,7 @@ export function decodeDrawioSvg(data: string): string {
 }
 
 const SVG_TAGS = new Set(('svg g defs title desc metadata symbol use switch path rect circle ellipse line polyline polygon text tspan textPath image a clipPath mask pattern marker linearGradient radialGradient stop filter feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap feDistantLight feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage feMerge feMergeNode feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile feTurbulence foreignObject style').split(' '));
+const CSS_ATTRIBUTES = new Set('style fill stroke filter clip-path mask marker marker-start marker-mid marker-end cursor color stop-color flood-color lighting-color font font-family'.split(' '));
 const HTML_TAGS = new Set(('div span p br b i u s strong em sub sup small big font a img ul ol li table tbody thead tfoot tr td th pre code blockquote hr h1 h2 h3 h4 h5 h6').split(' '));
 
 function validateCss(css: string): void {
@@ -138,7 +140,7 @@ export function validateDrawioSvg(svg: string, depth = 0): string {
       if (name.startsWith('on') || ['srcdoc', 'base', 'formaction', 'action'].includes(name)) throw new Error('Active SVG attribute');
       if (['srcset', 'ping', 'dynsrc', 'lowsrc'].includes(name)) throw new Error('Active/multiple SVG resource attribute');
       if (name === 'href' || name === 'src' || name === 'poster' || name === 'background') resource(attribute.value);
-      if (name === 'style' || /url\s*\(/i.test(attribute.value)) validateCss(attribute.value);
+      if (CSS_ATTRIBUTES.has(name) || /url\s*\(/i.test(attribute.value)) validateCss(attribute.value);
     }
   }
   // Processing instructions can refer to external XML stylesheets.
@@ -171,11 +173,11 @@ export function drawioFrameUrl(url: string, readOnly = false): { href: string; o
   return { href: target.href, origin: target.origin };
 }
 
-export function DrawioFrame({ url, xml, onSave, onCancel, onExport, readOnly = false }: {
-  url: string; xml: string; onSave: (xml: string) => void; onCancel: () => void;
-  onExport?: (svg: string) => void; readOnly?: boolean;
+export function DrawioFrame({ url, xml, onSave, onCancel, onExport, onDraft, readOnly = false }: {
+  url: string; xml: string; onSave: (xml: string) => void | Promise<void>; onCancel: () => void | Promise<void>;
+  onExport?: (svg: string) => void; onDraft?: (xml: string) => void; readOnly?: boolean;
 }) {
-  return <RuntimeFrame key={`${url}\0${xml}\0${readOnly}`} url={url} xml={xml} readOnly={readOnly} onSave={onSave} onCancel={onCancel} onSvg={onExport} />;
+  return <RuntimeFrame key={`${url}\0${xml}\0${readOnly}`} url={url} xml={xml} readOnly={readOnly} onSave={onSave} onCancel={onCancel} onSvg={onExport} onDraft={onDraft} />;
 }
 
 export function DrawioPreview({ url, xml, onSvg, onError }: {
@@ -184,13 +186,13 @@ export function DrawioPreview({ url, xml, onSvg, onError }: {
   return <RuntimeFrame key={`${url}\0${xml}`} url={url} xml={xml} readOnly preview onSvg={onSvg} onError={onError} />;
 }
 
-function RuntimeFrame({ url, xml, readOnly, preview = false, onSave, onCancel, onSvg, onError }: {
+function RuntimeFrame({ url, xml, readOnly, preview = false, onSave, onCancel, onSvg, onError, onDraft }: {
   url: string; xml: string; readOnly: boolean; preview?: boolean;
-  onSave?: (xml: string) => void; onCancel?: () => void; onSvg?: (svg: string) => void; onError?: (message: string) => void;
+  onSave?: (xml: string) => void | Promise<void>; onCancel?: () => void | Promise<void>; onSvg?: (svg: string) => void; onError?: (message: string) => void; onDraft?: (xml: string) => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  const callbacks = useRef({ onSave, onCancel, onSvg, onError });
-  callbacks.current = { onSave, onCancel, onSvg, onError };
+  const callbacks = useRef({ onSave, onCancel, onSvg, onError, onDraft });
+  callbacks.current = { onSave, onCancel, onSvg, onError, onDraft };
   const exportAction = useRef<() => void>(() => {});
   const cancelAction = useRef<() => void>(() => {});
   const [error, setError] = useState('');
@@ -215,7 +217,7 @@ function RuntimeFrame({ url, xml, readOnly, preview = false, onSave, onCancel, o
     const iframe = frame.current;
     if (!iframe) return;
     let state: DrawioSessionState = 'initializing';
-    let finished = false;
+    let finished = false, disposed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const clearTimer = () => { if (timer) clearTimeout(timer); timer = undefined; };
     const fail = (message: string) => {
@@ -232,28 +234,43 @@ function RuntimeFrame({ url, xml, readOnly, preview = false, onSave, onCancel, o
     };
     exportAction.current = requestExport;
     cancelAction.current = () => {
-      if (finished) return;
-      finished = true;
-      state = 'closed'; clearTimer(); setReady(false); callbacks.current.onCancel?.();
+      if (finished || state === 'saving') return;
+      const previous = state;
+      state = 'saving'; clearTimer(); setReady(false);
+      void (async () => {
+        try { await callbacks.current.onCancel?.(); if (!disposed) { finished = true; state = 'closed'; } }
+        catch (cause) { if (!disposed) { state = previous; setReady(previous === 'ready'); setError(cause instanceof Error ? cause.message : '取消失败；画布草稿仍保留，可重试'); if (previous !== 'ready' && previous !== 'closed') deadline(); } }
+      })();
     };
-    const receive = (event: MessageEvent) => {
+    const receive = async (event: MessageEvent) => {
       const message = acceptDrawioMessage(event, iframe.contentWindow, origin, state);
       if (!message) return;
       try {
         switch (message.event) {
           case 'init':
             state = 'loading'; deadline();
-            send({ action: 'load', xml, title: 'minds', autosave: 0 });
+            send({ action: 'load', xml, title: 'minds', autosave: !readOnly && onDraft ? 1 : 0 });
             break;
           case 'load':
             state = 'ready'; clearTimer(); setReady(true);
             if (preview) requestExport();
             break;
+          case 'autosave':
+            if (!readOnly) callbacks.current.onDraft?.(validateDrawioXml(message.xml));
+            break;
           case 'save':
             if (readOnly) return;
             validateDrawioXml(message.xml);
-            finished = true; state = 'closed'; clearTimer(); setReady(false);
-            callbacks.current.onSave?.(message.xml);
+            callbacks.current.onDraft?.(message.xml);
+            state = 'saving'; clearTimer(); setReady(false);
+            try {
+              await callbacks.current.onSave?.(message.xml);
+              if (disposed) return;
+              finished = true; state = 'closed'; setReady(false);
+            } catch (cause) {
+              if (disposed) return;
+              state = 'ready'; setReady(true); setError(cause instanceof Error ? cause.message : '保存失败；画布草稿仍保留，可重试');
+            }
             break;
           case 'exit': cancelAction.current(); break;
           case 'export': {
@@ -271,7 +288,7 @@ function RuntimeFrame({ url, xml, readOnly, preview = false, onSave, onCancel, o
     iframe.src = href;
     deadline();
     return () => {
-      state = 'closed'; clearTimer(); window.removeEventListener('message', receive);
+      disposed = true; state = 'closed'; clearTimer(); window.removeEventListener('message', receive);
       exportAction.current = () => {}; cancelAction.current = () => {};
     };
   }, [href, origin, setupError, xml, readOnly, preview]);
@@ -279,7 +296,7 @@ function RuntimeFrame({ url, xml, readOnly, preview = false, onSave, onCancel, o
   return <div className={preview ? 'minds-drawio-preview-runtime' : 'minds-drawio-frame'}>
     {!preview && <div className="minds-drawio-controls">
       {onSvg && <button type="button" disabled={!ready} onClick={() => exportAction.current()}>导出 SVG</button>}
-      <button type="button" onClick={() => { if (setupError) callbacks.current.onCancel?.(); else cancelAction.current(); }}>取消</button>
+      <button type="button" onClick={() => { if (setupError) void Promise.resolve().then(() => callbacks.current.onCancel?.()).catch(cause => setError(cause instanceof Error ? cause.message : '取消失败')); else cancelAction.current(); }}>取消</button>
       {error && <span role="alert">{error}</span>}
     </div>}
     {href && !setupError && <iframe ref={frame} title={preview ? 'draw.io preview runtime' : 'draw.io editor'}

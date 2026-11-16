@@ -19,7 +19,8 @@ describe('official draw.io JSON messages and session boundary', () => {
     expect(parseDrawioMessage('[]')).toBeNull();
     expect(parseDrawioMessage('{"event":"save","xml":42}')).toBeNull();
     expect(parseDrawioMessage('{"event":"export","data":null}')).toBeNull();
-    expect(parseDrawioMessage('{"event":"autosave","xml":"x"}')).toBeNull();
+    expect(parseDrawioMessage(JSON.stringify({ event: 'autosave', xml }))).toEqual({ event: 'autosave', xml });
+    expect(parseDrawioMessage('{"event":"autosave","xml":42}')).toBeNull();
   });
 
   it('requires exact iframe source and URL origin', () => {
@@ -43,6 +44,9 @@ describe('official draw.io JSON messages and session boundary', () => {
     expect(accept('load', 'loading')).toEqual({ event: 'load' });
     expect(accept('save', 'loading')).toBeNull();
     expect(accept('save', 'ready')).toEqual({ event: 'save', xml });
+    expect(accept('save', 'saving')).toBeNull(); expect(accept('exit', 'saving')).toBeNull();
+    expect(accept('autosave', 'ready')).toEqual({ event: 'autosave', xml });
+    for (const phase of ['initializing', 'loading', 'saving', 'exporting', 'closed'] as const) expect(accept('autosave', phase)).toBeNull();
     expect(accept('export', 'ready')).toBeNull();
     expect(accept('export', 'exporting')).toEqual({ event: 'export', data: svg });
     for (const type of ['init', 'load', 'save', 'exit', 'export', 'error']) expect(accept(type, 'closed')).toBeNull();

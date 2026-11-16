@@ -22,7 +22,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('historyRestore'), id, snapshotId: id }).strict(),
   z.object({ type: z.literal('maintenance'), id, dryRun: z.boolean() }).strict(),
   z.object({ type: z.literal('importImage'), id, name: z.string().max(256), mime: z.string().max(128), data: z.string().max(16_000_000), baseVersion: offset, from: offset, to: offset }).strict(),
-  z.object({ type: z.literal('insertEmbed'), id, kind: z.enum(['charts', 'excalidraw', 'drawio']), baseVersion: offset, from: offset, to: offset }).strict(),
+  z.object({ type: z.literal('insertEmbed'), id, kind: z.enum(['charts', 'mermaid', 'excalidraw', 'drawio']), baseVersion: offset, from: offset, to: offset }).strict(),
   z.object({ type: z.literal('readEmbed'), id, kind: z.enum(['excalidraw', 'drawio']), src: z.string().min(1).max(2048) }).strict(),
   z.object({ type: z.literal('saveEmbed'), id, sessionId: id, content: z.string().max(20_000_000) }).strict(),
   z.object({ type: z.literal('closeEmbed'), id, sessionId: id }).strict(),

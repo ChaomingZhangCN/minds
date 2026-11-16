@@ -1,0 +1,25 @@
+{
+  "type": "bar",
+  "title": "Disk，mini-batch 关闭：Stock 与 Native 归一化耗时",
+  "width": "100%",
+  "height": 300,
+  "xKey": "query",
+  "yDomain": [0, 1.1],
+  "data": [
+    {"query":"q0","stock":1,"native":0.513}, {"query":"q1","stock":1,"native":0.444},
+    {"query":"q2","stock":1,"native":0.654}, {"query":"q3","stock":1,"native":0.909},
+    {"query":"q4","stock":1,"native":0.067}, {"query":"q5","stock":1,"native":0.495},
+    {"query":"q7","stock":1,"native":0.066}, {"query":"q8","stock":1,"native":0.667},
+    {"query":"q9","stock":1,"native":0.229}, {"query":"q12","stock":1,"native":0.806},
+    {"query":"q13","stock":1,"native":0.524}, {"query":"q14","stock":1,"native":0.435},
+    {"query":"q15","stock":1,"native":0.455}, {"query":"q16","stock":1,"native":0.775},
+    {"query":"q17","stock":1,"native":0.495}, {"query":"q18","stock":1,"native":0.218},
+    {"query":"q19","stock":1,"native":0.248}, {"query":"q20","stock":1,"native":0.044},
+    {"query":"q21","stock":1,"native":0.606}, {"query":"q22","stock":1,"native":0.469},
+    {"query":"q23","stock":1,"native":0.775}
+  ],
+  "series": [
+    {"key":"stock","name":"Stock Flink","color":"#94a3b8"},
+    {"key":"native","name":"FlexNext Native","color":"#f97316"}
+  ]
+}

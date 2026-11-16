@@ -6,7 +6,7 @@ import { XMLValidator } from 'fast-xml-parser';
 import { DocumentSession } from './DocumentSession';
 import { clientMessageSchema, type ClientMessage } from '../shared/protocol';
 import { normalizeText, smallestChange, paragraphRange } from '../shared/text';
-import { collectResourceRefs, sampleChart } from '../shared/embeds';
+import { collectResourceRefs, sampleChart, sampleMermaid } from '../shared/embeds';
 import type { ClientContext, DocumentState, EmbedDocument, ServerMessage } from '../shared/types';
 import { ProviderManager } from '../providers/ProviderManager';
 import { AgentService } from '../agent/AgentService';
@@ -225,7 +225,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider, 
       case 'insertEmbed': {
         this.requireTrust(); const original = this.target(state, message.baseVersion, message.from, message.to);
         let config: unknown = sampleChart;
-        if (message.kind !== 'charts') {
+        if (message.kind !== 'charts' && message.kind !== 'mermaid') {
           const folder = vscode.workspace.getWorkspaceFolder(document.uri); if (!folder) throw new Error('图形资源需要文件工作区');
           const srcFromRoot = `.minds/diagrams/${randomUUID()}.${message.kind}`;
           const file = await resolveWorkspaceResource(folder.uri.fsPath, path.join(folder.uri.fsPath, 'root.md'), srcFromRoot, true);
@@ -233,7 +233,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider, 
           const content = message.kind === 'drawio' ? '<mxfile><diagram id="page-1" name="Page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>' : JSON.stringify({ type: 'excalidraw', version: 2, source: 'minds', elements: [], appState: { viewBackgroundColor: '#ffffff' }, files: {} });
           await fs.writeFile(file, content, { flag: 'wx' }); config = { src: path.relative(path.dirname(document.uri.fsPath), file).split(path.sep).join('/') };
         }
-        const insert = `\n\n\`\`\`${message.kind}\n${JSON.stringify(config, null, 2)}\n\`\`\`\n`;
+        const source = message.kind === 'mermaid' ? sampleMermaid : JSON.stringify(config, null, 2) + '\n';
+        const insert = `\n\n\`\`\`${message.kind}\n${source}\`\`\`\n`;
         await state.session.apply(message.id, message.baseVersion, { from: message.from, to: message.to, expectedText: original, insert }); await this.broadcastDocument(document); break;
       }
       case 'readEmbed': {

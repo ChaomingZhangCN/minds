@@ -1,102 +1,79 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Annotation, EditorState, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
-import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
-import { chartSchema, findEmbedBlocks, parseJson, resourceEmbedSchema, type EmbedBlock } from '../shared/embeds';
-import { paragraphRange } from '../shared/text';
-import type { AgentMode, ClientContext } from '../shared/types';
-import { ChartBlock } from './components/ChartBlock';
-import { DiagramPreview } from './components/DiagramPreview';
+import { GFM } from '@lezer/markdown';
+import { findEmbedBlocks, type EmbedBlock } from '../shared/embeds';
+import { paragraphRange, smallestChange } from '../shared/text';
+import type { AgentMode, ClientContext, EmbedKind } from '../shared/types';
+import { EmbedCard } from './components/EmbedCard';
+import { formatSelection, parseMarkdown, richDecorations, type FormatAction } from './richMarkdown';
 
 const remoteUpdate = Annotation.define<boolean>();
 interface Card { from: number; to: number; node: HTMLElement }
-const refresh = StateEffect.define<undefined>();
-const setCard = StateEffect.define<Card | undefined>();
+const refresh = StateEffect.define<undefined>(), setCard = StateEffect.define<Card | undefined>();
+export interface AgentInput { prompt?: string; range?: { from: number; to: number } }
 export interface MarkdownEditorHandle {
-  text(): string;
-  selection(): { from: number; to: number };
-  target(): { from: number; to: number };
-  replace(text: string): void;
-  select(from: number, to: number): void;
-  insert(text: string): void;
-  focus(): void;
+  text(): string; selection(): { from: number; to: number }; target(): { from: number; to: number };
+  replace(text: string): void; select(from: number, to: number): void; insert(text: string): void; focus(): void;
 }
 interface Props {
-  initialText: string;
-  context: ClientContext;
-  resourceStamp?: string;
-  card?: Card;
-  onChange(text: string): void;
-  onAgent(mode: AgentMode): void;
-  onEditEmbed(block: EmbedBlock): void;
-  onExport(svg: string): void;
-  onNative(command: 'save' | 'undo' | 'redo'): void;
-  onImage(file: File): void;
+  initialText: string; context: ClientContext; resourceStamp?: string; card?: Card;
+  onChange(text: string): void; onAgent(mode: AgentMode, input?: AgentInput): void;
+  onInsertEmbed?(kind: EmbedKind, range: { from: number; to: number }): void;
+  onExport(svg: string): void; onNative(command: 'save' | 'undo' | 'redo'): void; onImage(file: File): void;
 }
-class StaticWidget extends WidgetType {
-  constructor(private html: string, private position: number, private edit: () => void) { super(); }
-  eq(other: StaticWidget): boolean { return this.html === other.html && this.position === other.position; }
-  toDOM(): HTMLElement {
-    const dom = document.createElement('div'); dom.className = 'minds-rendered'; dom.innerHTML = this.html;
-    dom.addEventListener('dblclick', this.edit); return dom;
-  }
-  ignoreEvent(event: Event): boolean { return event.type !== 'dblclick'; }
-}
-const embedRoots = new WeakMap<HTMLElement, { root: Root; kind: string; from: number }>();
+interface EmbedIdentity { id: string; block: EmbedBlock }
+const embedRoots = new WeakMap<HTMLElement, { root: Root; id: string }>();
 class EmbedWidget extends WidgetType {
-  private root?: Root;
-  constructor(private block: EmbedBlock, private props: () => Props, private view: () => EditorView, private stamp: string) { super(); }
-  eq(other: EmbedWidget): boolean { return this.block.kind === other.block.kind && this.block.from === other.block.from && this.block.contentFrom === other.block.contentFrom && this.block.contentTo === other.block.contentTo && this.block.content === other.block.content && this.stamp === other.stamp; }
-  toDOM(): HTMLElement {
-    const dom = document.createElement('div'); dom.className = 'minds-embed-widget'; this.root = createRoot(dom);
-    embedRoots.set(dom, { root: this.root, kind: this.block.kind, from: this.block.from }); this.render(); return dom;
-  }
-  updateDOM(dom: HTMLElement): boolean {
-    const previous = embedRoots.get(dom);
-    if (!previous || previous.kind !== this.block.kind || previous.from !== this.block.from) return false;
-    this.root = previous.root; this.render(); return true;
-  }
-  private render(): void {
-    const block = this.block, config = parseJson(block.content), p = this.props();
-    const editSource = () => { const view = this.view(); view.dispatch({ selection: { anchor: block.contentFrom }, scrollIntoView: true }); view.focus(); };
-    if (block.kind === 'charts') {
-      const spec = chartSchema.safeParse(config);
-      this.root!.render(spec.success ? <div><ChartBlock spec={spec.data} onChange={next => this.view().dispatch({ changes: { from: block.contentFrom, to: block.contentTo, insert: JSON.stringify(next, null, 2) + '\n' } })} onExport={p.onExport} /><button onClick={editSource}>Charts 源码</button></div> : <div className="embed-error">Charts 配置无效<button onClick={editSource}>编辑源码</button></div>);
-    } else {
-      const resource = resourceEmbedSchema.safeParse(config);
-      this.root!.render(resource.success ? <DiagramPreview kind={block.kind} src={resource.data.src} context={p.context} resourceStamp={this.stamp} onEdit={() => this.props().onEditEmbed(block)} onSource={editSource} /> : <div className="embed-error">图形引用配置无效<button onClick={editSource}>编辑源码</button></div>);
-    }
-  }
-  destroy(dom: HTMLElement): void { const root = embedRoots.get(dom)?.root; embedRoots.delete(dom); queueMicrotask(() => root?.unmount()); }
-  ignoreEvent(): boolean { return true; }
+  constructor(private id: string, private block: EmbedBlock, private props: () => Props, private change: (source: string, expected: string) => void, private stamp: string) { super(); }
+  eq(other: EmbedWidget) { return this.id === other.id && this.block.content === other.block.content && this.block.from === other.block.from && this.stamp === other.stamp; }
+  toDOM() { const dom = document.createElement('div'); dom.className = 'minds-embed-widget'; const root = createRoot(dom); embedRoots.set(dom, { root, id: this.id }); this.render(root); return dom; }
+  updateDOM(dom: HTMLElement) { const previous = embedRoots.get(dom); if (!previous || previous.id !== this.id) return false; this.render(previous.root); return true; }
+  private render(root: Root) { const p = this.props(); root.render(<EmbedCard block={this.block} context={p.context} stamp={this.stamp} onChange={this.change} onExport={p.onExport} />); }
+  destroy(dom: HTMLElement) { const root = embedRoots.get(dom)?.root; embedRoots.delete(dom); queueMicrotask(() => root?.unmount()); }
+  ignoreEvent() { return true; }
 }
-class MentionWidget extends WidgetType {
-  constructor(private pick: (mode: AgentMode) => void) { super(); }
-  toDOM(): HTMLElement {
-    const menu = document.createElement('span'); menu.className = 'mention-menu'; menu.contentEditable = 'false';
-    for (const [mode, label] of [['ask', '@ask · 提问'], ['rewrite', '@writer · 改写']] as const) {
-      const button = document.createElement('button'); button.textContent = label;
-      button.onclick = () => this.pick(mode); menu.append(button);
-    }
-    return menu;
+interface MenuItem { label: string; detail: string; keywords: string; insert?: string; kind?: EmbedKind; agent?: AgentMode }
+const agents: MenuItem[] = [
+  { label: '@ask · 提问', detail: '针对段落提问', keywords: 'ask agent 提问', insert: '@ask ', agent: 'ask' },
+  { label: '@writer · 改写', detail: '生成待审阅修改', keywords: 'writer rewrite 改写', insert: '@writer ', agent: 'rewrite' },
+];
+const blocks: MenuItem[] = [
+  { label: '标题', detail: '二级标题', keywords: 'heading title 标题', insert: '## ' },
+  { label: '列表', detail: '无序列表', keywords: 'list bullet 列表', insert: '- ' },
+  { label: '任务列表', detail: '可勾选任务', keywords: 'task todo checklist 任务', insert: '- [ ] ' },
+  { label: '引用', detail: '引用段落', keywords: 'quote 引用', insert: '> ' },
+  { label: '代码块', detail: '原样代码', keywords: 'code 代码', insert: '```text\n\n```\n' },
+  { label: 'Chart', detail: '可编辑图表', keywords: 'chart charts 图表', kind: 'charts' },
+  { label: 'Mermaid', detail: '语法驱动图形', keywords: 'mermaid 流程图', kind: 'mermaid' },
+  { label: 'Excalidraw', detail: '真实手绘画布', keywords: 'excalidraw sketch 手绘', kind: 'excalidraw' },
+  { label: 'draw.io', detail: '完整本地图形编辑器', keywords: 'drawio draw.io 图形', kind: 'drawio' },
+];
+interface Menu { from: number; to: number; text: string; type: '@' | '/'; items: MenuItem[]; index: number }
+class MenuWidget extends WidgetType {
+  constructor(private menu: Menu, private pick: (item: MenuItem) => void) { super(); }
+  eq(other: MenuWidget) { return this.menu.text === other.menu.text && this.menu.from === other.menu.from && this.menu.index === other.menu.index; }
+  toDOM() {
+    const dom = document.createElement('span'); dom.className = `document-menu ${this.menu.type === '@' ? 'mention-menu' : 'slash-menu'}`; dom.setAttribute('role', 'listbox'); dom.setAttribute('aria-label', this.menu.type === '@' ? '选择 Agent' : '插入文档块');
+    const heading = document.createElement('span'); heading.className = 'menu-caption'; heading.textContent = `${this.menu.type === '@' ? '委派给' : '插入'} · ↑↓ 选择 · Enter 确认`; dom.append(heading);
+    this.menu.items.forEach((item, index) => { const button = document.createElement('button'); button.type = 'button'; button.setAttribute('aria-selected', String(index === this.menu.index)); button.className = index === this.menu.index ? 'menu-selected' : ''; const title = document.createElement('strong'), detail = document.createElement('small'); title.textContent = item.label; detail.textContent = item.detail; button.append(title, detail); button.onmousedown = event => event.preventDefault(); button.onclick = () => this.pick(item); dom.append(button); });
+    return dom;
   }
-  ignoreEvent(): boolean { return true; }
+  ignoreEvent() { return true; }
 }
 class CardWidget extends WidgetType {
   constructor(private node: HTMLElement) { super(); }
-  eq(other: CardWidget): boolean { return this.node === other.node; }
-  toDOM(): HTMLElement { return this.node; }
-  ignoreEvent(): boolean { return true; }
+  eq(other: CardWidget) { return this.node === other.node; }
+  toDOM() { return this.node; }
+  ignoreEvent() { return true; }
 }
 
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor(props, ref) {
-  const container = useRef<HTMLDivElement>(null), view = useRef<EditorView>();
-  const latest = useRef(props); latest.current = props;
+  const container = useRef<HTMLDivElement>(null), view = useRef<EditorView>(), latest = useRef(props); latest.current = props;
+  const [toolbar, setToolbar] = useState<{ left: number; top: number }>(), [linkOpen, setLinkOpen] = useState(false), [href, setHref] = useState('');
   useImperativeHandle(ref, () => ({
     text: () => view.current!.state.doc.toString(),
     selection: () => { const s = view.current!.state.selection.main; return { from: s.from, to: s.to }; },
@@ -107,78 +84,94 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
       if (!text.slice(current.from, current.to).trim() && current.from > 0) return paragraphRange(text, Math.max(0, current.from - 3));
       return current;
     },
-    replace: text => { const editor = view.current!; if (editor.state.doc.toString() !== text) editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text }, annotations: remoteUpdate.of(true) }); },
+    replace: text => { const editor = view.current!; if (editor.state.doc.toString() !== text) editor.dispatch({ changes: smallestChange(editor.state.doc.toString(), text), annotations: remoteUpdate.of(true) }); },
     select: (from, to) => { const editor = view.current!; editor.dispatch({ selection: { anchor: Math.min(from, editor.state.doc.length), head: Math.min(to, editor.state.doc.length) }, scrollIntoView: true }); editor.focus(); },
-    insert: text => { const editor = view.current!; const s = editor.state.selection.main; editor.dispatch({ changes: { from: s.from, to: s.to, insert: text }, selection: { anchor: s.from + text.length } }); editor.focus(); },
+    insert: text => { const editor = view.current!, s = editor.state.selection.main; editor.dispatch({ changes: { from: s.from, to: s.to, insert: text }, selection: { anchor: s.from + text.length } }); editor.focus(); },
     focus: () => view.current?.focus(),
   }));
   useEffect(() => {
-    let card: Card | undefined;
-    const buildDecorations = (state: EditorState): DecorationSet => {
-      const text = state.doc.toString(), selection = state.selection.main;
-      const activeLine = state.doc.lineAt(selection.head);
-      const md = new MarkdownIt({ html: false, linkify: false });
-      md.renderer.rules.link_open = (tokens, index, options, _env, renderer) => { tokens[index].attrSet('href', ''); return renderer.renderToken(tokens, index, options); };
-      md.renderer.rules.image = (tokens, index) => {
-        const src = tokens[index].attrGet('src') ?? '', url = latest.current.context.document.resourceUrls[src];
-        if (!url) return '<span class="missing-image">[图片未加载：外链、无效或未授权资源]</span>';
-        return `<img src="${md.utils.escapeHtml(url)}" alt="${md.utils.escapeHtml(tokens[index].content)}">`;
-      };
-      const offsets = [0]; for (let i = 0; i < text.length; i++) if (text[i] === '\n') offsets.push(i + 1);
-      const tokens = md.parse(text, {}), embeds = findEmbedBlocks(text), decorations: ReturnType<Decoration['range']>[] = [];
-      for (const token of tokens) {
-        if (token.level !== 0 || !token.map || token.nesting === -1) continue;
-        const from = offsets[token.map[0]], to = offsets[token.map[1]] ?? text.length;
-        if (from === undefined || to <= from || (from <= activeLine.to && to > activeLine.from) || (!selection.empty && from < selection.to && to > selection.from)) continue;
-        if (card && from <= card.to && to > card.from) continue;
-        const embed = embeds.find(block => block.from === from);
-        if (embed) decorations.push(Decoration.replace({ widget: new EmbedWidget(embed, () => latest.current, () => view.current!, latest.current.resourceStamp ?? ''), block: true }).range(from, to));
-        else {
-          const html = DOMPurify.sanitize(md.render(text.slice(from, to)), { FORBID_TAGS: ['script', 'iframe', 'object', 'style', 'form'], FORBID_ATTR: ['style', 'srcset', 'href'], ALLOW_DATA_ATTR: false });
-          decorations.push(Decoration.replace({ widget: new StaticWidget(html, from, () => { view.current!.dispatch({ selection: { anchor: from }, scrollIntoView: true }); view.current!.focus(); }), block: true }).range(from, to));
-        }
+    let card: Card | undefined, identities: EmbedIdentity[] = [], menu: Menu | undefined, dismissed = '';
+    const pick = (item: MenuItem) => {
+      const editor = view.current!; if (!menu || editor.state.doc.sliceString(menu.from, menu.to) !== menu.text) return;
+      const { from, to } = menu;
+      if (item.kind) { latest.current.onInsertEmbed?.(item.kind, { from, to }); return; }
+      const insert = item.insert!;
+      editor.dispatch({ changes: { from, to, insert }, selection: { anchor: from + (item.label === '代码块' ? 8 : insert.length) } }); editor.focus();
+    };
+    const build = (state: EditorState): DecorationSet => {
+      const text = state.doc.toString(), embeds = findEmbedBlocks(text), selection = state.selection.main;
+      identities = embeds.map(block => ({ id: identities.find(previous => previous.block.from === block.from && previous.block.kind === block.kind)?.id ?? crypto.randomUUID(), block }));
+      const decorations = richDecorations(state, embeds, () => view.current!, latest.current.context.document.resourceUrls);
+      for (const entry of identities) {
+        const change = (source: string, expected: string) => {
+          const editor = view.current!, current = identities.find(item => item.id === entry.id)?.block;
+          if (!current || editor.state.doc.sliceString(current.contentFrom, current.contentTo) !== expected) throw new Error('图形源码已变化，拒绝覆盖；草稿仍保留。');
+          editor.dispatch({ changes: { from: current.contentFrom, to: current.contentTo, insert: source } });
+        };
+        decorations.push(Decoration.replace({ widget: new EmbedWidget(entry.id, entry.block, () => latest.current, change, `${latest.current.resourceStamp ?? ''}:${latest.current.context.trusted}`), block: true, ...{ atomic: true } }).range(entry.block.from, entry.block.to));
       }
-      const mention = /^\s*@(a(?:s(?:k)?)?|w(?:r(?:i(?:t(?:e(?:r)?)?)?)?)?)?\s*$/.test(activeLine.text);
-      const code = tokens.some(token => ['fence', 'code_block'].includes(token.type) && token.map && activeLine.number - 1 >= token.map[0] && activeLine.number - 1 < token.map[1]);
-      if (mention && !code && selection.empty) decorations.push(Decoration.widget({ widget: new MentionWidget(mode => {
-        const editor = view.current!;
-        if (editor.state.doc.lineAt(Math.min(activeLine.from, editor.state.doc.length)).text !== activeLine.text) return;
-        editor.dispatch({ changes: { from: activeLine.from, to: activeLine.to, insert: '' } });
-        queueMicrotask(() => latest.current.onAgent(mode));
-      }), side: 1 }).range(activeLine.to));
+      const line = state.doc.lineAt(selection.head), match = /^\s*([@/])([^\s]*)$/.exec(line.text);
+      let node = parseMarkdown(text).resolveInner(selection.head, -1), code = false;
+      for (; node; node = node.parent!) if (['FencedCode', 'CodeBlock', 'InlineCode'].includes(node.name)) { code = true; break; }
+      if (match && selection.empty && !code && dismissed !== `${line.from}:${line.text}`) {
+        const items = (match[1] === '@' ? agents : blocks).filter(item => item.keywords.toLowerCase().includes(match[2].toLowerCase()));
+        const index = menu?.text === line.text ? Math.min(menu.index, items.length - 1) : 0;
+        menu = items.length ? { from: line.from, to: line.to, text: line.text, type: match[1] as '@' | '/', items, index } : undefined;
+        if (menu) decorations.push(Decoration.widget({ widget: new MenuWidget(menu, pick), side: 1 }).range(line.to));
+      } else menu = undefined;
       if (card) {
-        const pos = state.doc.lineAt(Math.min(card.to, state.doc.length)).to;
+        let pos = state.doc.lineAt(Math.min(card.to, state.doc.length)).to;
+        const embed = embeds.find(block => pos > block.from && pos < block.to); if (embed) pos = embed.to;
         decorations.push(Decoration.widget({ widget: new CardWidget(card.node), block: true, side: 1 }).range(pos));
       }
       return Decoration.set(decorations, true);
     };
     const field = StateField.define<DecorationSet>({
-      create: state => buildDecorations(state),
-      update: (value, transaction) => {
+      create: state => build(state), update: (value, transaction) => {
         for (const effect of transaction.effects) if (effect.is(setCard)) card = effect.value;
-        if (card && transaction.docChanged) card = { ...card, from: transaction.changes.mapPos(card.from), to: transaction.changes.mapPos(card.to) };
-        return transaction.docChanged || transaction.selection || transaction.effects.length ? buildDecorations(transaction.state) : value;
-      }, provide: field => EditorView.decorations.from(field),
+        if (transaction.docChanged) {
+          if (card) card = { ...card, from: transaction.changes.mapPos(card.from), to: transaction.changes.mapPos(card.to) };
+          identities = identities.map(entry => ({ ...entry, block: { ...entry.block, from: transaction.changes.mapPos(entry.block.from, 1) } }));
+        }
+        return transaction.docChanged || transaction.selection || transaction.effects.length ? build(transaction.state) : value;
+      }, provide: field => [EditorView.decorations.from(field), EditorView.atomicRanges.of(view => view.state.field(field).update({ filter: (_from, _to, value) => value.spec.atomic === true }))],
     });
     const native = (command: 'save' | 'undo' | 'redo') => { latest.current.onNative(command); return true; };
-    const editor = new EditorView({ parent: container.current!, state: EditorState.create({ doc: props.initialText, extensions: [markdown(), syntaxHighlighting(defaultHighlightStyle), EditorView.lineWrapping, field,
-      keymap.of([{ key: 'Mod-s', run: () => native('save') }, { key: 'Mod-z', run: () => native('undo') }, { key: 'Mod-Shift-z', run: () => native('redo') }, { key: 'Mod-y', run: () => native('redo') }, ...defaultKeymap, indentWithTab]),
+    const move = (delta: number) => { if (!menu) return false; menu = { ...menu, index: (menu.index + delta + menu.items.length) % menu.items.length }; view.current!.dispatch({ effects: refresh.of(undefined) }); return true; };
+    const submitCommand = () => {
+      const editor = view.current!, text = editor.state.doc.toString(), line = editor.state.doc.lineAt(editor.state.selection.main.head), command = /^\s*@(ask|writer)\s+(.+)$/.exec(line.text);
+      if (!command) return false;
+      let node = parseMarkdown(text).resolveInner(line.from, 1);
+      for (; node; node = node.parent!) if (['FencedCode', 'CodeBlock'].includes(node.name)) return false;
+      const before = text.slice(0, line.from).trimEnd(), range = before ? paragraphRange(text, before.length - 1) : { from: 0, to: 0 };
+      latest.current.onAgent(command[1] === 'ask' ? 'ask' : 'rewrite', { prompt: command[2], range }); return true;
+    };
+    const editor = new EditorView({ parent: container.current!, state: EditorState.create({ doc: props.initialText, extensions: [markdown({ extensions: GFM }), EditorView.lineWrapping, field,
+      keymap.of([{ key: 'ArrowDown', run: () => move(1) }, { key: 'ArrowUp', run: () => move(-1) }, { key: 'Enter', run: () => { if (!menu) return false; pick(menu.items[menu.index]); return true; } }, { key: 'Escape', run: () => { if (!menu) return false; dismissed = `${menu.from}:${menu.text}`; menu = undefined; view.current!.dispatch({ effects: refresh.of(undefined) }); return true; } },
+        { key: 'Mod-Enter', run: submitCommand }, { key: 'Mod-b', run: view => { formatSelection(view, 'bold'); return true; } }, { key: 'Mod-i', run: view => { formatSelection(view, 'italic'); return true; } },
+        { key: 'Mod-s', run: () => native('save') }, { key: 'Mod-z', run: () => native('undo') }, { key: 'Mod-Shift-z', run: () => native('redo') }, { key: 'Mod-y', run: () => native('redo') }, ...defaultKeymap, indentWithTab]),
       EditorView.domEventHandlers({
+        scroll: () => { setToolbar(undefined); return false; },
         beforeinput: event => { if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') { event.preventDefault(); return native(event.inputType === 'historyUndo' ? 'undo' : 'redo'); } return false; },
         paste: event => { const file = [...(event.clipboardData?.files ?? [])].find(file => file.type.startsWith('image/')); if (file) { event.preventDefault(); latest.current.onImage(file); return true; } return false; },
         drop: event => { const file = [...(event.dataTransfer?.files ?? [])].find(file => file.type.startsWith('image/')); if (file) { event.preventDefault(); latest.current.onImage(file); return true; } return false; },
       }),
       EditorView.updateListener.of(update => {
-        if (!update.docChanged || update.transactions.some(transaction => transaction.annotation(remoteUpdate))) return;
-        latest.current.onChange(update.state.doc.toString());
-        // A mention only offers choices. It never removes source, changes the
-        // selection, or calls a provider until the user explicitly picks one.
+        if (update.docChanged && !update.transactions.some(transaction => transaction.annotation(remoteUpdate))) latest.current.onChange(update.state.doc.toString());
+        if (update.selectionSet || update.docChanged) {
+          const selection = update.state.selection.main;
+          if (selection.empty || findEmbedBlocks(update.state.doc.toString()).some(block => selection.from < block.to && selection.to > block.from)) setToolbar(undefined);
+          else editor.requestMeasure({ read: view => view.coordsAtPos(selection.from), write: rect => setToolbar({ left: Math.max(8, Math.min(rect?.left ?? 20, window.innerWidth - 520)), top: Math.max(72, (rect?.top ?? 120) - 48) }) });
+        }
       }),
     ] }) });
-    view.current = editor;
-    return () => { editor.destroy(); view.current = undefined; };
+    view.current = editor; return () => { editor.destroy(); view.current = undefined; };
   }, []);
-  useEffect(() => { view.current?.dispatch({ effects: refresh.of(undefined) }); }, [props.resourceStamp]);
+  useEffect(() => { view.current?.dispatch({ effects: refresh.of(undefined) }); }, [props.resourceStamp, props.context.trusted]);
   useEffect(() => { view.current?.dispatch({ effects: setCard.of(props.card) }); }, [props.card]);
-  return <div className="markdown-editor" data-testid="markdown-editor" ref={container} />;
+  const format = (action: FormatAction) => { if (view.current) formatSelection(view.current, action, href); setLinkOpen(false); };
+  return <div className="markdown-editor" data-testid="markdown-editor"><div ref={container} />{toolbar && <div className="selection-toolbar" role="toolbar" aria-label="选区格式与 AI" style={{ left: toolbar.left, top: toolbar.top }} onMouseDown={event => { if (!(event.target as Element).closest('input')) event.preventDefault(); }}>
+    <button onClick={() => latest.current.onAgent('rewrite')}>AI 改写</button><button onClick={() => latest.current.onAgent('ask')}>提问</button><button aria-label="加粗" onClick={() => format('bold')}><b>B</b></button><button aria-label="斜体" onClick={() => format('italic')}><i>I</i></button><button onClick={() => format('heading')}>标题</button><button onClick={() => format('code')}>代码</button><button onClick={() => setLinkOpen(!linkOpen)}>链接</button>
+    {linkOpen && <label>链接地址<input aria-label="链接地址" value={href} onChange={event => setHref(event.target.value)} /><button onClick={() => format('link')}>插入链接</button></label>}
+  </div>}</div>;
 });

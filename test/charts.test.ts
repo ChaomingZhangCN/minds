@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { BarSeriesOption, LineSeriesOption } from 'echarts';
-import { chartSchema, sampleChart, type ChartSpec } from '../src/shared/embeds';
+import { chartSchema, sampleChart, findEmbedBlocks, normalizeChart, type ChartSpec } from '../src/shared/embeds';
+import fixture from './fixtures/wide-chart.json';
+import { validateSvg } from '../src/utils/security';
+import { ProposalService } from '../src/agent/ProposalService';
 import { assignChartColorSlots, ChartBlock, chartPalettes, compileChartOption, exportChartSvg, validateChartSpec } from '../src/webview/components/ChartBlock';
 
 const series = (spec: ChartSpec) => compileChartOption(spec).series as Array<BarSeriesOption | LineSeriesOption>;
@@ -12,6 +15,34 @@ const multiseries: ChartSpec = {
 };
 
 describe('charts schema and safe option compiler', () => {
+  it('renders the complete user wide-table fixture without changing its fence or JSON', () => {
+    const text = 'before\n\n```chart\n' + JSON.stringify(fixture, null, 2) + '\n```\n\nafter';
+    const [block] = findEmbedBlocks(text); expect(block.kind).toBe('charts'); expect(text.slice(block.contentFrom, block.contentTo)).toBe(block.content); expect(text.slice(block.from, block.contentFrom)).toBe('```chart\n');
+    const spec = validateChartSpec(JSON.parse(block.content)), option = compileChartOption(spec);
+    expect(spec).toEqual(fixture); expect(spec.data).toHaveLength(21); expect(option.yAxis).toMatchObject({ min: 0, max: 1.1 }); expect(Array.isArray(option.yAxis)).toBe(false);
+    expect(option.xAxis).toMatchObject({ data: fixture.data.map(row => row.query) }); expect(option.legend).toMatchObject({ data: ['Stock Flink', 'FlexNext Native'] }); expect(option.color).toEqual(['#94a3b8', '#f97316']);
+    expect(series(spec).map(item => item.name)).toEqual(['Stock Flink', 'FlexNext Native']); expect(series(spec)[1].data).toMatchObject(fixture.data.map(row => ({ value: row.native })));
+    for (const theme of ['light', 'dark'] as const) { const svg = exportChartSvg(spec, theme); expect(svg).toContain('height="300"'); expect(svg).toContain('#94a3b8'); expect(validateSvg(svg)).toBe(svg); }
+  });
+  it('normalizes wide-table keys without internal category/value/series collisions', () => {
+    for (const xKey of ['category', 'value', 'series']) {
+      const spec = validateChartSpec({ type: 'line', title: 'x', xKey, series: [{ key: 'measure', name: 'M' }], data: [{ [xKey]: 'A', measure: 2 }] });
+      expect(normalizeChart(spec).data).toEqual([{ category: 'A', value: 2, series: 'measure' }]); expect(series(spec)[0].data).toMatchObject([{ value: 2 }]);
+    }
+  });
+  it('rejects unsafe wide declarations and accepts chart aliases in AI proposals', () => {
+    for (const invalid of [
+      { ...fixture, height: 0 }, { ...fixture, width: '101%' }, { ...fixture, yDomain: [2, 1] },
+      { ...fixture, series: [fixture.series[0], fixture.series[0]] }, { ...fixture, series: [{ ...fixture.series[0], color: 'url(https://evil.example)' }] },
+      { ...fixture, data: [fixture.data[0], fixture.data[0]] }, { ...fixture, data: [{ query: 'A', stock: 1 }] },
+    ]) expect(() => validateChartSpec(invalid)).toThrow();
+    const replacement = '```chart\n' + JSON.stringify(fixture) + '\n```';
+    expect(new ProposalService().create({ mode: 'rewrite', from: 0, to: 3, baseVersion: 1, original: 'old', replacement, prompt: 'chart' }).replacement).toBe(replacement);
+  });
+  it('handles longer closing fences and nested fences without including the close in JSON', () => {
+    const text = '````chart\n' + JSON.stringify(fixture) + '\n`````\n\n~~~mermaid\nflowchart LR\nA-->B\n~~~\n';
+    const blocks = findEmbedBlocks(text); expect(blocks.map(block => block.kind)).toEqual(['charts', 'mermaid']); expect(JSON.parse(blocks[0].content)).toEqual(fixture); expect(blocks[1].content).toBe('flowchart LR\nA-->B\n');
+  });
   it('uses the existing version-one schema and rejects arbitrary option/JavaScript fields', () => {
     expect(chartSchema.safeParse(sampleChart).success).toBe(true);
     for (const input of [{ ...sampleChart, version: 2 }, { ...sampleChart, type: 'scatter' }, { ...sampleChart, formatter: 'alert(1)' }, { ...sampleChart, data: [{ month: 'A', requests: Infinity }] }, { ...sampleChart, data: [{ month: 'A', requests: '3' }] }]) {

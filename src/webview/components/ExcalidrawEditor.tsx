@@ -175,12 +175,13 @@ export const excalidrawUIOptions: NonNullable<ExcalidrawProps['UIOptions']> = {
 export interface ExcalidrawEditorProps {
   content: string;
   assetUrl: string;
-  onSave: (content: string, svg?: string) => void;
-  onCancel: () => void;
+  onSave: (content: string, svg?: string) => void | Promise<void>;
+  onCancel: () => void | Promise<void>;
   onExport?: (svg: string) => void;
+  onDraft?: (content: string) => void;
 }
 
-export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, onExport }: ExcalidrawEditorProps) {
+export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, onExport, onDraft }: ExcalidrawEditorProps) {
   const theme = useVSCodeTheme();
   const [sdk, setSDK] = useState<ExcalidrawSDK | null>(null);
   const [initialData, setInitialData] = useState<ImportedDataState | null>(null);
@@ -190,7 +191,7 @@ export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, 
   const original = useRef(content);
   const latestContent = useRef(content);
   latestContent.current = content;
-  const saving = useRef(false);
+  const saving = useRef(false), initialNative = useRef('');
   const draft = useRef<{ elements: readonly ExcalidrawElement[]; appState: Partial<AppState>; files: BinaryFiles } | null>(null);
   const api = useRef<ExcalidrawImperativeAPI | null>(null);
   const root = useRef<HTMLElement>(null);
@@ -218,6 +219,7 @@ export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, 
         if (cancelled) return;
         const elements = loaded.restoreElements(scene.elements, null, { repairBindings: true });
         draft.current = { elements, appState: scene.appState ?? {}, files: scene.files ?? {} };
+        initialNative.current = loaded.serializeAsJSON(elements, scene.appState ?? {}, scene.files ?? {}, 'local');
         setInitialData({ ...scene, elements, scrollToContent: true }); setSDK(loaded);
       } catch (e) { if (!cancelled) setError((e as Error).message); }
     }
@@ -237,14 +239,21 @@ export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, 
       const scene = parseExcalidrawScene(native);
       const svg = (scene.elements?.some(element => !element.isDeleted) || exportOnly) ? await exportSceneSvg(scene, sdk) : undefined;
       if (!alive.current || latestContent.current !== original.current) return;
-      if (exportOnly && svg) onExport?.(svg); else onSave(native, svg);
+      if (exportOnly && svg) onExport?.(svg); else await onSave(native, svg);
     } catch (e) { if (alive.current) setError((e as Error).message); }
+    finally { saving.current = false; if (alive.current) setBusy(false); }
+  }
+  async function cancel() {
+    if (saving.current || busy) return;
+    saving.current = true; setBusy(true);
+    try { await onCancel(); }
+    catch (cause) { if (alive.current) setError(cause instanceof Error ? cause.message : '取消失败；草稿仍保留，可重试'); }
     finally { saving.current = false; if (alive.current) setBusy(false); }
   }
   const Editor = sdk?.Excalidraw;
   const MainMenu = sdk?.MainMenu;
   const DefaultSidebar = sdk?.DefaultSidebar;
-  return <section ref={root} className="minds-diagram minds-excalidraw" role="dialog" aria-modal="true" aria-label="Excalidraw 本地草稿编辑器" onMouseDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onClickCapture={event => {
+  return <section ref={root} className="minds-diagram minds-excalidraw" role="region" aria-label="Excalidraw 本地草稿编辑器" onMouseDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onClickCapture={event => {
     if ((event.target as Element).closest('a')) { event.preventDefault(); event.stopPropagation(); }
   }} onKeyDown={event => event.stopPropagation()} onKeyDownCapture={event => {
     // SDK's saveFileToDisk is not individually configurable in 0.18.1. Block native
@@ -254,7 +263,7 @@ export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, 
     <header className="diagram-toolbar"><strong>Excalidraw · 本地草稿</strong><div className="diagram-actions">
       {onExport && <button type="button" disabled={busy || !sdk || conflict} onClick={() => void finish(true)}>导出 SVG</button>}
       <button type="button" disabled={busy || !sdk || conflict} onClick={() => void finish()}>保存图形</button>
-      <button type="button" onClick={() => { alive.current = false; onCancel(); }}>取消</button>
+      <button type="button" disabled={busy} onClick={() => void cancel()}>取消</button>
     </div></header>
     <p className="diagram-hint">保存才会通过文档 Host 写入原生 .excalidraw 文件；取消不写入。不连接云协作或在线图形库。</p>
     {conflict && <p role="alert" className="diagram-error">原始图形已变更；请取消并重新打开，避免覆盖其他修改。</p>}
@@ -273,10 +282,11 @@ export default function ExcalidrawEditor({ content, assetUrl, onSave, onCancel, 
         }}
         onChange={(elements, appState, files) => {
           draft.current = { elements, appState, files };
+          if (sdk && onDraft) { const native = sdk.serializeAsJSON(elements, appState, files, 'local'); if (native !== initialNative.current) onDraft(native); }
           if (appState.openSidebar?.tab === 'library') api.current?.updateScene({ appState: { openSidebar: null } });
           if (appState.openDialog && ['commandPalette', 'imageExport', 'export', 'ttd'].includes(appState.openDialog.name)) api.current?.updateScene({ appState: { openDialog: null } });
         }}>
-        <MainMenu><MainMenu.Item onSelect={() => void finish()}>保存到文档</MainMenu.Item><MainMenu.Item onSelect={() => { alive.current = false; onCancel(); }}>取消草稿</MainMenu.Item></MainMenu>
+        <MainMenu><MainMenu.Item onSelect={() => void finish()}>保存到文档</MainMenu.Item><MainMenu.Item onSelect={() => void cancel()}>取消草稿</MainMenu.Item></MainMenu>
         <DefaultSidebar className="minds-disabled-library" />
         <DefaultSidebar.Trigger className="minds-disabled-library-trigger"><span>在线图形库已禁用</span></DefaultSidebar.Trigger>
       </Editor>}

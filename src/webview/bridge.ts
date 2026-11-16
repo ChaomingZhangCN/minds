@@ -1,5 +1,6 @@
 import type { ClientMessage } from '../shared/protocol';
 import type { ServerMessage } from '../shared/types';
+import type { GraphDraft } from './drafts';
 
 declare global { interface Window { __MINDS_DEV_BRIDGE__?: { postMessage(message: ClientMessage): void; getState(): unknown; setState(value: unknown): void }; } }
 declare function acquireVsCodeApi(): { postMessage(message: ClientMessage): void; getState(): unknown; setState(value: unknown): void };
@@ -28,5 +29,5 @@ export function request<T = unknown>(message: RequestMessage, timeoutMs = 30000)
     api.postMessage({ ...message, id } as ClientMessage);
   });
 }
-export function persistedDraft(): { conflictDraft?: string } { return (api.getState() as { conflictDraft?: string } | undefined) ?? {}; }
-export function persistDraft(conflictDraft?: string): void { api.setState({ conflictDraft }); }
+export function persistedDraft(): { conflictDraft?: string; graphDrafts?: GraphDraft[] } { return (api.getState() as { conflictDraft?: string; graphDrafts?: GraphDraft[] } | undefined) ?? {}; }
+export function persistDraft(conflictDraft?: string, graphDrafts = persistedDraft().graphDrafts): void { api.setState({ conflictDraft, graphDrafts }); }

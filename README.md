@@ -2,28 +2,31 @@
 
 Markdown 即时编辑、文档内 AI、完整离线图形和本地 Snapshot 历史的 VS Code 扩展。
 
-> **0.1.0 本机预览版，不是正式公开发行版。** 完整 draw.io 已内置，未使用在线编辑服务或外部扩展替代。draw.io 内含的 LGPL 组件对应源码/构建材料审计尚未完成，因此不要上传此完整 VSIX 到 Marketplace、公开 Release 或其他公开分发渠道。源码、构建入口和明确的验证状态见下文。
+> **0.2.0 本机预览版，不是正式公开发行版。** 完整 draw.io 已内置，未使用在线编辑服务或外部扩展替代。draw.io 内含的 LGPL 组件对应源码/构建材料审计尚未完成，因此不要上传此完整 VSIX 到 Marketplace、公开 Release 或其他公开分发渠道。源码、构建入口和明确的验证状态见下文。
 
 ## 安装和开始使用
 
 需要 VS Code **1.105.0+**。开发/构建需要 Node.js **22+**、npm 和 Git（首次取得固定 draw.io 源码时）。
 
-1. 在 VS Code 执行 **Extensions: Install from VSIX…**，选择本地 `minds-0.1.0.vsix`。
+1. 在 VS Code 执行 **Extensions: Install from VSIX…**，选择本地 `minds-0.2.0.vsix`。
 2. 打开包含 Markdown 和图形资源的文件工作区。只有确认项目来源安全后才信任工作区。
-3. 右击 `.md` / `.markdown` 标签页，选择 **Reopen Editor With… → minds Markdown**，或执行 **minds: 打开 Markdown 编辑器**。
-4. 打开 `examples/welcome.md` 体验图表、真实 Excalidraw、真实 draw.io。把光标移出图块后显示预览，点击“编辑图形”进入完整画布。
+3. 新打开 `.md` / `.markdown` 时，minds 注册为默认 Custom Editor；已打开的标签页或已有显式编辑器关联仍由 VS Code 决定。如未使用 minds，选择 **Reopen Editor With… → minds Markdown**，或执行 **minds: 打开 Markdown 编辑器**。
+4. 打开 `examples/welcome.md` 体验直接编辑、任务列表、Chart、Mermaid、真实 Excalidraw 和 draw.io。`examples/wide-chart.md` 包含完整的 21 个 query 宽表样例。点击图块中的“编辑图形”在当前块内进入真实画布。
 
-minds 是可选 Custom Editor，不会默认替换所有 Markdown 编辑器。“源码”按钮回到 VS Code 原生文本编辑器。
+正文渲染和编辑在同一个编辑器中，不另开 Markdown 预览页。minds 不修改用户的全局文件关联；“源码”按钮仍可回到 VS Code 原生文本编辑器。
 
 命令行安装（已安装 `code` 时）：
 
 ```sh
-code --install-extension minds-0.1.0.vsix
+code --install-extension minds-0.2.0.vsix
 ```
 
 ## 正文编辑
 
-- 当前光标所在块显示 Markdown 源码，其他块即时渲染；双击渲染块进入编辑。
+- 标题、粗斜体、删除线、行内代码、列表、引用以排版后的正文直接编辑，不再双击进入源码；任务 checkbox 只修改原文的 `[ ]` / `[x]`。
+- 选区浮动工具栏提供提问、改写、粗斜体、标题、行内代码和链接；空段落 `/` 菜单可插入正文结构或图形。菜单支持方向键、Enter 和 Escape，退出不删除输入。
+- 图形块始终显示，光标进入不会变成整块源码。展开源码在同一块内编辑，支持收起后继续恢复草稿；合法草稿更新图形，应用才写正文。
+- 未覆盖语法（例如表格布局和复杂图片引用）保留可编辑源码表示；不声称所有 Markdown 语法均已富文本化。
 - 原生 `TextDocument` 是正文真相，按限定范围提交，不将整篇文档富文本化后重新序列化。
 - 保留 CRLF/LF 和 UTF-16 偏移；中文、emoji 不拆开。保存、撤销、重做等候当前同步完成，再调用原生 VS Code 操作。
 - 外部修改和未提交草稿冲突时暂停同步，保留**完整草稿副本**；先查看、复制或明确合并，不盲目重试覆盖。
@@ -33,7 +36,9 @@ code --install-extension minds-0.1.0.vsix
 
 ## 文档内 @ agent
 
-选中一段正文，点击 **@ 提问** 或 **@ 改写**。也可在独立空行输入 `@`、`@ask`、`@writer`，再点击出现的选择菜单。仅输入 @ 不删除正文、不切换选区、不发送 AI 请求；邮箱和代码块中的 @ 不触发。
+选中正文，点击浮动工具栏的**提问**或 **AI 改写**（也可使用顶部 **@ 提问／@ 改写**）。在独立空段落输入 `@`，用方向键／Enter 或点击菜单选择 `@ask`／`@writer`，只会填写命令。继续输入问题或改写指令后，按 **Cmd/Ctrl+Enter** 打开绑定上一段正文的请求卡片；没有上一段时绑定空范围。正文中的命令不自动删除。
+
+只有在请求卡片点击**发送**，或在卡片输入框按 **Cmd/Ctrl+Enter**，才会调用配置的 Provider。选择菜单、打开卡片都不外发；邮箱、fence 和缩进代码中的命令不触发。
 
 - 卡片绑定原文选区或段落，讨论内容不默认写入 Markdown。
 - 默认只发送选区；可明确选择当前段落或全文，并展开查看实际正文上下文。
@@ -59,9 +64,9 @@ Anthropic 的服务端 refusal fallback 默认开启，可在 `minds.ai.refusalF
 
 ## 图形：原生文件为真相
 
-### Charts
+### Chart / Charts
 
-使用版本化、声明式 JSON，不执行用户 JavaScript：
+同时识别单数 `chart` 与复数 `charts` fence，不改写原 fence。两种声明式 JSON 格式均不执行用户 JavaScript。旧版长表格式继续兼容：
 
 ```charts
 {
@@ -78,9 +83,40 @@ Anthropic 的服务端 refusal fallback 默认开启，可在 `minds.ai.refusalF
 }
 ```
 
-支持 `bar` / `line` / `pie`，基础字段 `version/type/title/x/y/data`，多系列可选 `series`。真实 ECharts 渲染、表单/JSON 编辑、数据表、tooltip、深浅主题、纹理辅助和 SVG 导出。
+旧版字段为 `version/type/title/x/y/data`，多系列可选字符串 `series`。新版宽表使用 `xKey` 与 `series` 定义数组，`version: 1` 可选，例如：
+
+````md
+```chart
+{
+  "type": "bar", "title": "归一化耗时",
+  "width": "100%", "height": 300, "xKey": "query", "yDomain": [0, 1.1],
+  "data": [{"query":"q0","stock":1,"native":0.513},{"query":"q1","stock":1,"native":0.444}],
+  "series": [
+    {"key":"stock","name":"Stock Flink","color":"#94a3b8"},
+    {"key":"native","name":"FlexNext Native","color":"#f97316"}
+  ]
+}
+```
+````
+
+完整 21 行样例在 `examples/wide-chart.md`，未删数据或替换指定颜色。支持 `bar` / `line` / `pie`；单个数值轴，保留系列顺序、名称与颜色，尊重宽高及 `yDomain`。宽／高像素为整数 200–4096；宽度也可为 1%–100%，坐标域必须为有限递增数值。字段、数值、重复类别／系列和尺寸均验证，不接受任意 ECharts option / JS。
+
+真实 ECharts 渲染、表单／JSON 编辑、数据表、tooltip、深浅主题、纹理辅助和 SVG 导出。合法草稿实时预览，确认前不写正文；JSON 或数据行暂时非法时保留原输入和上一版有效图，外部源码变化时拒绝覆盖。用户指定颜色不会偷偷替换：示例灰色不满足严格 categorical chroma 检查，浅色背景对比度有 WARN，请使用系列标签、数据表和纹理辅助；不宣称该自选配色通过全部检查。
 
 首版渲染最多 **3 个系列**，饼图最多 **3 个类别**；不会为超额系列生成颜色或擅自合并“其他”。同类别/系列重复测量需自行明确汇总，缺测保留空隙而非填零。饼图不接受负数、全零或 `series` 字段。共享存储 schema 的上限与 UI 渲染约束不同，超出时会显示明确错误。
+
+### Mermaid
+
+````md
+```mermaid
+flowchart LR
+  A[提出问题] --> B[收集证据] --> C[形成结论]
+```
+````
+
+本地 Mermaid 11.17.2 按需串行渲染，不连接在线服务。支持块内源码、深浅主题、平移／缩放／适应视口／扩大查看与 SVG 导出；语法错误保留上一版有效图，当前源码成功渲染校验后才允许应用。
+
+固定 strict 模式、关闭 HTML labels，拒用户 init/config、frontmatter、click、HTML 及外部图片／URL。不执行 bindFunctions；生成的 SVG 经过净化和安全校验，Host 导出时再验证。
 
 ### Excalidraw
 
@@ -110,7 +146,15 @@ Anthropic 的服务端 refusal fallback 默认开启，可在 `minds.ai.refusalF
 
 主 Webview 不允许 `unsafe-eval`。draw.io 独立 CSP 保留官方 inline script 精确哈希，不放行任意 inline/eval。SVG 导出允许经过白名单验证的原生 HTML 标签，但拒绝脚本、事件属性、外部资源和活动 HTML。
 
-**完整资源校验通过不等于真实浏览器 CSP/交互验证通过。** 当前环境的浏览器下载超时，真实离线画布与导出需要按照下面脚本在本机验证。
+Excalidraw / draw.io 在当前图块内打开原生编辑器，不使用全屏 Markdown 预览或自制简化画布。保存等待 Host 实际返回；失败保留画布与草稿，可以重试。所有查看视口支持平移、缩放、适应视口、复位、块内扩大查看与 SVG 导出。
+
+**完整资源校验通过不等于真实浏览器 CSP/交互验证通过。** Chromium 已下载，但当前 Linux 缺少 `libglib-2.0.so.0` 等运行库，9 项浏览器测试全部停在启动阶段，未进入正文；真实离线画布与导出仍需本机验证。
+
+### 未应用图形草稿
+
+图块源码、Chart 配置、Excalidraw 原生 JSON 及 draw.io 发出的 autosave/save XML 在 Webview 本地 state 中备份。即使删除图块，顶部“本地未应用图形草稿”仍可查看／复制；不自动重放到正文或资源、不发给 Provider、不写入项目、Git 或 Snapshot。应用、保存、明确取消或确认已复制后移除对应备份。
+
+这不是磁盘级崩溃事务备份。draw.io 只备份已经收到的原生事件；没有收到事件或进程突然崩溃时不能保证最后动作已持久化。大图频繁持久化的性能仍待真实浏览器验收。
 
 ## 图片 Blob 与私有历史
 

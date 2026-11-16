@@ -4,7 +4,7 @@ minds 自有代码沿用仓库根目录 Apache-2.0 LICENSE；该声明不改变�
 
 ## npm 依赖
 
-核心直接依赖包括 React / CodeMirror / ECharts / Excalidraw / MarkdownIt / DOMPurify / fast-xml-parser / proper-lockfile / Zod、官方 Anthropic SDK 和官方 OpenAI SDK。精确安装版本以 `package-lock.json` 为准。
+核心直接依赖包括 React / CodeMirror / Lezer Markdown / ECharts / Mermaid / Excalidraw / MarkdownIt / DOMPurify / fast-xml-parser / proper-lockfile / Zod、官方 Anthropic SDK 和官方 OpenAI SDK。精确安装版本以 `package-lock.json` 为准。
 
 每次完整构建会为**全部已安装生产依赖**（保守超集，不等于每个包都被打进 JS）复制 LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT/AUTHORS 原始文件和字体声明，并生成：
 
@@ -37,7 +37,7 @@ minds 自有代码沿用仓库根目录 Apache-2.0 LICENSE；该声明不改变�
 
 ## Excalidraw 与字体
 
-Excalidraw 0.18.1 的库、字体和其依赖按各自的原声明保留。`dist/excalidraw/fonts/` 为本地运行字体，`dist/licenses/npm/` 收录在包中发现的字体声明。主 CSP 阻止原厂 CDN fallback；没有依靠外网许可链接替代本地字体或声明。
+Excalidraw 0.18.1 的库、字体和其依赖按实际提供的原声明保留。当前 `@excalidraw/excalidraw` 0.18.1 npm 分发目录未包含单独 LICENSE/NOTICE 文件，构建记录其 MIT 许可元数据和上游来源；不把元数据或其他 Excalidraw 子包的 LICENSE 冒充该包完整许可文本。公开发行前仍需补齐与版本对应的原始许可／版权材料。包体报告会列出没有独立声明文件的生产依赖；“已复制所有发现的声明”不等于全部许可义务已解除。`dist/excalidraw/fonts/` 为本地运行字体，`dist/licenses/npm/` 收录在包中发现的字体声明。主 CSP 阻止原厂 CDN fallback；没有依靠外网许可链接替代本地字体或声明。
 
 ## 其他说明
 

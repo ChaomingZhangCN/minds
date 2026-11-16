@@ -2,7 +2,7 @@
   "name": "minds",
   "displayName": "minds",
   "description": "Markdown 即时编辑、文档内 AI、离线图形与本地快照历史。",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "minds-local",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "https://github.com/ChaomingZhangCN/minds.git" },
@@ -18,7 +18,7 @@
     "virtualWorkspaces": { "supported": false, "description": "首版需要本地或 Remote Extension Host 文件系统。" }
   },
   "contributes": {
-    "customEditors": [{ "viewType": "minds.markdown", "displayName": "minds Markdown", "selector": [{ "filenamePattern": "*.md" }, { "filenamePattern": "*.markdown" }], "priority": "option" }],
+    "customEditors": [{ "viewType": "minds.markdown", "displayName": "minds Markdown", "selector": [{ "filenamePattern": "*.md" }, { "filenamePattern": "*.markdown" }], "priority": "default" }],
     "commands": [
       { "command": "minds.open", "title": "minds: 打开 Markdown 编辑器" },
       { "command": "minds.configureProvider", "title": "minds: 配置 AI Provider" },
@@ -68,10 +68,12 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.8",
     "@excalidraw/excalidraw": "0.18.1",
+    "@lezer/markdown": "1.8.1",
     "dompurify": "^3.2.6",
     "echarts": "^6.0.0",
     "fast-xml-parser": "^5.2.5",
     "markdown-it": "^14.1.0",
+    "mermaid": "11.17.2",
     "openai": "7.57.0",
     "proper-lockfile": "^4.1.2",
     "react": "18.3.1",

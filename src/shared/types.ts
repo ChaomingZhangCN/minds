@@ -1,4 +1,4 @@
-export type EmbedKind = 'charts' | 'excalidraw' | 'drawio';
+export type EmbedKind = 'charts' | 'mermaid' | 'excalidraw' | 'drawio';
 export type AgentMode = 'ask' | 'rewrite';
 export interface TextChange { from: number; to: number; insert: string; expectedText: string }
 export interface DocumentState {
