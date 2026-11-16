@@ -2,23 +2,25 @@
 
 Markdown 即时编辑、文档内 AI、完整离线图形和本地 Snapshot 历史的 VS Code 扩展。
 
-> **0.2.0 本机预览版，不是正式公开发行版。** 完整 draw.io 已内置，未使用在线编辑服务或外部扩展替代。draw.io 内含的 LGPL 组件对应源码/构建材料审计尚未完成，因此不要上传此完整 VSIX 到 Marketplace、公开 Release 或其他公开分发渠道。源码、构建入口和明确的验证状态见下文。
+> **0.2.1 本机预览版，不是正式公开发行版。** 完整 draw.io 已内置，未使用在线编辑服务或外部扩展替代。draw.io 内含的 LGPL 组件对应源码/构建材料审计尚未完成，因此不要上传此完整 VSIX 到 Marketplace、公开 Release 或其他公开分发渠道。源码、构建入口和明确的验证状态见下文。
 
 ## 安装和开始使用
 
 需要 VS Code **1.105.0+**。开发/构建需要 Node.js **22+**、npm 和 Git（首次取得固定 draw.io 源码时）。
 
-1. 在 VS Code 执行 **Extensions: Install from VSIX…**，选择本地 `minds-0.2.0.vsix`。
+1. 在 VS Code 执行 **Extensions: Install from VSIX…**，选择本地 `minds-0.2.1.vsix`。
 2. 打开包含 Markdown 和图形资源的文件工作区。只有确认项目来源安全后才信任工作区。
 3. 新打开 `.md` / `.markdown` 时，minds 注册为默认 Custom Editor；已打开的标签页或已有显式编辑器关联仍由 VS Code 决定。如未使用 minds，选择 **Reopen Editor With… → minds Markdown**，或执行 **minds: 打开 Markdown 编辑器**。
 4. 打开 `examples/welcome.md` 体验直接编辑、任务列表、Chart、Mermaid、真实 Excalidraw 和 draw.io。`examples/wide-chart.md` 包含完整的 21 个 query 宽表样例。点击图块中的“编辑图形”在当前块内进入真实画布。
 
 正文渲染和编辑在同一个编辑器中，不另开 Markdown 预览页。minds 不修改用户的全局文件关联；“源码”按钮仍可回到 VS Code 原生文本编辑器。
 
+**从 0.2.0 更新：** 0.2.1 修复了正常 Host 初始化消息被误拦截、页面一直显示“正在连接原生文档…”的问题。安装新 VSIX 后执行 **Developer: Reload Window**，再重开文档；不需要改动 Markdown 内容或配置 Provider。若更新后仍卡住，请确认扩展版本为 0.2.1，并检查 **Developer: Toggle Developer Tools** 的 Console；分享错误前去除凭证和文档内容。
+
 命令行安装（已安装 `code` 时）：
 
 ```sh
-code --install-extension minds-0.2.0.vsix
+code --install-extension minds-0.2.1.vsix
 ```
 
 ## 正文编辑

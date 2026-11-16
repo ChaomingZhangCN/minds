@@ -2,7 +2,7 @@
   "name": "minds",
   "displayName": "minds",
   "description": "Markdown 即时编辑、文档内 AI、离线图形与本地快照历史。",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "minds-local",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "https://github.com/ChaomingZhangCN/minds.git" },

@@ -5,11 +5,13 @@ import type { GraphDraft } from './drafts';
 declare global { interface Window { __MINDS_DEV_BRIDGE__?: { postMessage(message: ClientMessage): void; getState(): unknown; setState(value: unknown): void }; } }
 declare function acquireVsCodeApi(): { postMessage(message: ClientMessage): void; getState(): unknown; setState(value: unknown): void };
 const api = window.__MINDS_DEV_BRIDGE__ ?? acquireVsCodeApi();
+const hostWindow = window.__MINDS_DEV_BRIDGE__ ? window : window.parent;
+const hostOrigin = window.origin;
 const pending = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
 const listeners = new Set<(message: ServerMessage) => void>();
 window.addEventListener('message', event => {
-  // Vendor child frames cannot impersonate the VS Code host transport.
-  if (event.source && event.source !== window) return;
+  // VS Code's same-origin parent forwards Host messages; vendor child frames are not the Host.
+  if (event.source !== hostWindow || event.origin !== hostOrigin) return;
   const message = event.data as ServerMessage;
   if (!message || typeof message.type !== 'string') return;
   if (message.type === 'result') {

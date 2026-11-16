@@ -1,10 +1,20 @@
-# minds 0.2.0 验证记录
+# minds 0.2.1 验证记录
 
 日期：2026-11-16。环境：Linux、Node.js 22.16.0、npm 10。只记录实际执行结果，不把 mock、jsdom、SSR 或静态资源校验当作真实 VS Code／Chromium 交互验收。
 
 **交付定位：本机私用预览。** 完整 draw.io 已内置；真实 UI／原生验收有环境阻塞，完整 binary 公开再分发审计未通过，不上传 Marketplace 或公开 Release。
 
-## 自动化结果
+## 0.2.1 连接修复
+
+0.2.0 的 bridge 仅接受当前窗口／空来源消息；VS Code 1.105.0 的官方 Webview wrapper 实际以父窗口调用 `contentWindow.postMessage(message, window.origin, transfer)`。已核对上游 `src/vs/workbench/contrib/webview/browser/pre/index.html`（[固定版本源码](https://github.com/microsoft/vscode/blob/1.105.0/src/vs/workbench/contrib/webview/browser/pre/index.html#L1275-L1286)），正常初始化及请求回包因此被误拦截。
+
+- 修复前新增父窗口测试实际失败：正常 `init`／`document` 未到达订阅者，Host 回包请求超时。
+- 修复后 bridge 精确匹配同源直接父窗口；开发 bridge 显式注入时只允许自窗口模拟。拒绝厂商子 iframe、兄弟窗口、生产自窗口、空来源及错误 origin，CSP 未放宽。
+- `test/bridge.test.ts` 12 项全部通过，使用 jsdom 的真实嵌套 iframe 身份与合成 `MessageEvent`，不是 VS Code 或 Chromium 运行结果。最终 `npm run typecheck && npm test` exit 0，**20 个文件、307 项测试全部通过**（96.64 秒）。
+- 初次测试使用显式 jsdom 实例时缺类型声明；改为 Vitest jsdom 环境后遇到全局 Window 代理身份差异，失败断言格式化耗尽 Node 堆。最终测试直接取 `content.parent` 身份、只断言布尔身份，不新增依赖或提高堆上限，定向测试及类型检查重新通过。
+- 原生 VS Code／macOS 真实连接及运行验收仍待完成，之前的环境阻塞未解除；不能用这些回归测试声称实际客户端验收通过。
+
+## 自动化结果（0.2.0 基线）
 
 - `npm run typecheck`：exit 0。
 - 最后一次完整 `npm test`：exit 0，**19 个文件、295 项测试全部通过**（86.87 秒），包含新增视口 wheel 默认行为／缩放边界／合成几何 fit 回归。
@@ -77,7 +87,7 @@ npm run test:browser
 
 生产 esbuild 构建已成功，包含 Extension Host CJS、Webview ESM／lazy Mermaid／Excalidraw chunks、本地字体及完整固定 draw.io。声明复制包含 319 个生产依赖元数据和 276 份原声明，是保守依赖超集，不是法律 clearance。实际包体检查发现 `@excalidraw/excalidraw` 0.18.1 npm 目录没有单独 LICENSE/NOTICE，已核对其 MIT 元数据；报告列出未提供独立声明文件的依赖，不将此计为完整许可清理通过。
 
-0.2.0 使用新文件 `/home/admin/workspace/minds-dist/minds-0.2.0.vsix`，保留已有 0.1.0 文件。包体 SHA-256、CRC、ZIP 路径／重复项、实际白名单、所有 dist／示例／文档字节、draw.io 逐文件 hash、npm 声明 hash、字体、VSIX manifest 与源码提交记录在同目录 **`package-report-0.2.0.json`** 和 `minds-0.2.0.vsix.sha256`。未生成这些文件前不视为交付完成。
+0.2.1 使用新文件 `/home/admin/workspace/minds-dist/minds-0.2.1.vsix`，保留已有 0.2.0／0.1.0 文件。包体 SHA-256、CRC、ZIP 路径／重复项、实际白名单、所有 dist／示例／文档字节、draw.io 逐文件 hash、npm 声明 hash、字体、VSIX manifest 和生产 source map 中 bridge 的源码匹配记录在同目录 **`package-report-0.2.1.json`** 和 `minds-0.2.1.vsix.sha256`。本次未自动提交修复；报告 `sourceCommit` 仅表示 Git HEAD 基线，`sourceTreeClean: false` 和逐文件源码 hash 明确记录额外工作树修改，不能把该 HEAD 冒充完整修复提交。未生成这些文件前不视为交付完成。
 
 VSIX 白名单仅包含构建产物、文档、原声明、图标和示例，不包含 minds 顶层源码／测试／node_modules／缓存／凭证／私有历史。原厂 `dist/drawio/mxgraph/src/` 是运行资源，不是被误带入的 minds 源码。vsce 默认秘密扫描保持启用，不使用跳过扫描参数。
 
@@ -87,7 +97,7 @@ VSIX 不限定 OS／CPU，**不是 macOS Intel／Apple Silicon 已实测**。安
 
 - 自有源码 Apache-2.0，原第三方分别保留许可；不因此解除 draw.io libavoid／Adaptagrams 的对应源码／构建义务。见 `THIRD_PARTY_NOTICES.md`。公开完整 binary 再分发未获审计通过。
 - `minds-local` 是未注册的本地 Publisher 占位；不 Marketplace／公开 Release／Pages／Kbase 发布，不外部定时任务，不付费模型测试。
-- 本次源码在 `feat/unified-editor` 提交；包／dist／缓存／私有数据不入 Git，不自动 push。
+- 0.2.0 源码基线在 `feat/unified-editor` 已本地提交；本次 0.2.1 修复未自动 commit／push。包／dist／缓存／私有数据不入 Git。
 - 原生文件保存与 Snapshot 不是同一事务；正文／多资源恢复为可恢复操作，不是原子事务。WorkspaceEdit 的前置校验不是原子 CAS。
 - 工作区 live raster 图片不自动 GC；magic／MIME 校验不是完整像素尺寸炸弹审计。
 - 同目录重命名可关联历史；跨目录旧快照恢复被拒绝，跨工作区历史不自动迁移。
