@@ -1,0 +1,65 @@
+:root { color-scheme: light dark; --bg: var(--vscode-editor-background, #fcfcfb); --fg: var(--vscode-editor-foreground, #252a31); --muted: var(--vscode-descriptionForeground, #66717c); --border: var(--vscode-panel-border, #d4dbe2); --surface: var(--vscode-sideBar-background, #f0f3f5); --accent: var(--vscode-button-background, #16786f); --accent-fg: var(--vscode-button-foreground, #fff); }
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--fg); background: var(--bg); font-family: var(--vscode-font-family, system-ui, sans-serif); font-size: var(--vscode-font-size, 13px); }
+button, input, textarea, select { font: inherit; }
+button { padding: 5px 9px; border: 1px solid var(--border); border-radius: 5px; color: var(--fg); background: var(--surface); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--vscode-focusBorder, #2a78d6); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+textarea, select { border: 1px solid var(--border); background: var(--bg); color: var(--fg); padding: 8px; border-radius: 4px; }
+textarea { width: 100%; min-height: 90px; resize: vertical; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--vscode-editor-font-family, ui-monospace, monospace); }
+.app-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; background: var(--bg); }
+.app-toolbar strong { font-size: 19px; color: var(--accent); margin-right: 5px; }
+.filename { margin-right: 12px; color: var(--muted); }
+.provider-button { margin-left: auto; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loading { padding: 24px; }
+.markdown-editor { margin: 0 auto; max-width: 1120px; }
+.cm-editor { min-height: 70vh; }
+.cm-editor.cm-focused { outline: none; }
+.cm-scroller { font-family: var(--vscode-editor-font-family, ui-monospace, monospace); line-height: 1.75; padding: 20px 32px 120px; }
+.cm-content { caret-color: var(--fg); }
+.cm-line { padding: 0; }
+.cm-selectionBackground { background: var(--vscode-editor-selectionBackground, #bbe0ff) !important; }
+.cm-cursor { border-left-color: var(--fg) !important; }
+.minds-rendered { font-family: var(--vscode-font-family, system-ui, sans-serif); line-height: 1.7; padding: 3px 0 12px; cursor: text; }
+.minds-rendered h1, .minds-rendered h2 { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.minds-rendered p { margin: 0 0 10px; }
+.minds-rendered pre { padding: 16px; border: 1px solid var(--border); background: var(--surface); border-radius: 7px; }
+.minds-rendered :not(pre) > code { background: var(--surface); padding: 2px 4px; border-radius: 3px; }
+.minds-rendered blockquote { border-left: 4px solid var(--accent); margin-left: 0; padding-left: 16px; color: var(--muted); }
+.minds-rendered table { border-collapse: collapse; max-width: 100%; }
+.minds-rendered th, .minds-rendered td { border: 1px solid var(--border); padding: 7px 12px; }
+.minds-rendered img { display: block; max-width: 100%; max-height: 650px; object-fit: contain; }
+.missing-image, .muted { color: var(--muted); }
+.minds-embed-widget { margin: 12px 0 20px; font-family: var(--vscode-font-family, system-ui, sans-serif); }
+.diagram-preview { border: 1px solid var(--border); border-radius: 7px; padding: 10px; min-height: 110px; }
+.diagram-preview .diagram-toolbar { display: flex; justify-content: space-between; gap: 10px; overflow-wrap: anywhere; }
+.diagram-svg-preview { width: 100%; height: auto; max-height: 550px; object-fit: contain; display: block; margin: 12px auto; }
+.notice, .warning, .conflict { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); }
+.warning, .conflict { border-left: 4px solid var(--vscode-editorWarning-foreground, #b8860b); }
+.warning-text, .embed-error { color: var(--vscode-errorForeground, #b64627); }
+.embed-error { padding: 12px; }
+.conflict textarea { min-height: 180px; }
+.mention-menu { display: inline-flex; flex-wrap: wrap; gap: 6px; padding: 4px 8px; font-family: var(--vscode-font-family, system-ui, sans-serif); }
+.ai-card-anchor { font-family: var(--vscode-font-family, system-ui, sans-serif); white-space: normal; }
+.ai-card { margin: 12px 0 22px; border: 1px solid var(--accent); border-left-width: 4px; border-radius: 7px; padding: 16px; background: var(--surface); }
+.card-heading, .card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-bottom: 10px; }
+.card-heading > button { margin-left: auto; }
+.card-heading > span { color: var(--muted); }
+.ai-card blockquote { border-left: 3px solid var(--border); padding-left: 12px; margin-left: 0; max-height: 180px; overflow-y: auto; white-space: pre-wrap; }
+.ai-card details { margin: 10px 0; }
+.ai-card textarea { min-height: 85px; margin-bottom: 10px; }
+.ai-answer { background: var(--bg); border-radius: 6px; padding: 14px; }
+.proposal-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.proposal-diff > div { border: 1px solid var(--border); border-radius: 5px; padding: 10px; background: var(--bg); min-width: 0; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 30; background: #0009; padding: 16px; }
+.diagram-modal { height: 100%; width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.history-panel { position: fixed; inset: 66px 12px 12px; z-index: 25; border: 1px solid var(--border); box-shadow: 0 8px 32px #0004; background: var(--bg); border-radius: 8px; padding: 18px; overflow: auto; }
+.history-layout { display: grid; grid-template-columns: minmax(200px, 280px) 1fr; gap: 20px; }
+.history-layout > ul { padding: 0; list-style: none; }
+.history-layout li button { width: 100%; text-align: left; margin-bottom: 7px; }
+.history-layout small { display: block; color: var(--muted); }
+.snapshot-source { border: 1px solid var(--border); padding: 14px; }
+@media (max-width: 700px) { .cm-scroller { padding: 16px 14px 100px; } .proposal-diff, .history-layout { grid-template-columns: 1fr; } .provider-button { margin-left: 0; max-width: 100%; } }

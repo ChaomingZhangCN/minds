@@ -1,0 +1,12 @@
+**
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!VALIDATION.md
+!media/icon.png
+!dist/**
+!examples/**
+**/.env*
+**/.minds/**

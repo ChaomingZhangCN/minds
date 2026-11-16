@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/jgraph/drawio.git",
+  "commit": "c72c9a98b7a6ce392556ed04c05e0ff19f43f5c3",
+  "version": "32.6.10",
+  "runtime": "src/main/webapp",
+  "runtimeIntegrity": {
+    "algorithm": "sha256(JSON.stringify(sorted {path,bytes,sha256} files))",
+    "files": 3091,
+    "bytes": 112334527,
+    "sha256": "fce42faa7e5bb01b83c5195b6fec7c464581e855df4fe5049548500e1dcb2b5e"
+  },
+  "verifiedFiles": {
+    "LICENSE": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+    "README.md": "749486eaa18f4569a45add47b4d1feae09df45044291eec2ce67f0506ef41c51",
+    "VERSION": "70fd87720a50d88a0914c93b51db8eb83d79cb38d772d5a4d3b6a3ac4c3811e8",
+    "src/main/webapp/index.html": "5969a0c4a1196c165cc9a454b96c146371271c155cfb5e3705d8fbb7c9c7601b",
+    "src/main/webapp/js/app.min.js": "db039f8314e86388da61e7ebf4472ebdcfe63b58e92bffd1f2daac961932626c",
+    "src/main/webapp/js/bootstrap.js": "541be92b25caca019ed562e99d6dd61dcc1407ad3843b73aea765c5d4cc8c192",
+    "src/main/webapp/js/PreConfig.js": "b8655ef28c207ec5e8d3ac207a26d5311499e0be8b97ee08aae9154d69199a07",
+    "src/main/webapp/js/PostConfig.js": "cd3bb1ed454e26e77a1997182324df84f63227d7b49e19f098396d68ea9d24cc",
+    "src/main/webapp/js/extensions.min.js": "81d4016892fb3486268301efe0c6a68e8c00d76233b2cabae8b21850728a3b5a",
+    "src/main/webapp/js/shapes-14-6-5.min.js": "565463296aa15df2abea2404d7defae5db74b3d23c9b3c75fe743a7af089f3a9",
+    "src/main/webapp/js/stencils.min.js": "b6acdcf854ae27368cbc3108564d93de1eec91090126d2ebca9a69664bbecb3d",
+    "src/main/webapp/js/diagramly/EditorUi.js": "ba990915c646980807ef6fd16ffbb6a9ac2a3cdfb5d68b3c523fda8d6a271b0a",
+    "src/main/webapp/js/libavoid-js/LICENSE": "6da7ddf40cfea6f568961825b14478e879875f6ad033fad57889ae5bd52103f4",
+    "src/main/webapp/templates/LICENSE": "ee8790799bd0e807be1058ab1db714b61d5908ded4f8ed3c239f9827c52c1076",
+    "src/main/webapp/stencils/LICENSE": "f4098ff053b5954abbf69b15811ef06cd277847ca49934beda355c3d841ebdac",
+    "src/main/webapp/shapes/LICENSE": "55f8931a59e1f6e3ffff6c950c44339981c4806925ac0d97517a71164b0ca2ea",
+    "src/main/webapp/img/LICENSE": "55f8931a59e1f6e3ffff6c950c44339981c4806925ac0d97517a71164b0ca2ea",
+    "src/main/webapp/styles/fonts/ArchitectsDaughter-Regular.ttf": "8116fb167643f707c4a99f544e9bcdb9cb7ba00c0a72c9bbc9e0b20966ed9810"
+  },
+  "licenses": [
+    { "path": "LICENSE", "license": "Apache-2.0", "scope": "draw.io source code" },
+    { "path": "src/main/webapp/templates/LICENSE", "license": "CC-BY-4.0", "scope": "diagram templates; also retain README asset-use restriction" },
+    { "path": "src/main/webapp/img/LICENSE", "license": "upstream-asset-terms", "scope": "icons; software-asset use in Atlassian products/marketplace/plugin ecosystem prohibited without written permission; end-user diagram exports excluded" },
+    { "path": "src/main/webapp/stencils/LICENSE", "license": "upstream-asset-terms", "scope": "stencil libraries; retain original restrictions" },
+    { "path": "src/main/webapp/shapes/LICENSE", "license": "upstream-asset-terms", "scope": "shape libraries; retain original restrictions" },
+    { "path": "src/main/webapp/js/libavoid-js/LICENSE", "license": "LGPL-2.1", "scope": "Adaptagrams libavoid compiled into pure-JS artifact and extensions.min.js" },
+    { "path": "src/main/webapp/styles/fonts/ArchitectsDaughter-Regular.ttf", "license": "OFL-1.1", "scope": "font name table contains complete copyright and license; extract unchanged into generated notice" }
+  ],
+  "distributionAudit": {
+    "publicDistributionReady": false,
+    "privateLocalBuildOnly": true,
+    "blockers": [
+      "LGPL-2.1 libavoid.min.js is a modified C++/embind build artifact also embedded in extensions.min.js. The pinned tree contains no corresponding C++ source, custom binding, VPSC patches or referenced etc/build/github-build.xml. Source/relink compliance must be established before public redistribution. A link to the generic Adaptagrams source is not a verified corresponding-source offer."
+    ]
+  },
+  "sourceEvidence": {
+    "embedProtocol": "js/diagramly/EditorUi.js:31610-31681,32030-32445,32447-32498,33183-33198,33271-33275; js/diagramly/Menus.js:3326-3402",
+    "offlineFlags": "js/diagramly/Init.js:477-489 disables picker,gapi,od,gh,gl,tr,ms365; js/diagramly/EditorUi.js:1875-1919 defines offline and disables remote export; js/diagramly/Editor.js:209-213 requires pwa=0 to suppress service worker",
+    "noEvalProductionStartup": "js/diagramly/App.js:1499-1515 sets mxStencilRegistry.allowEval=false then preloads complete shapes/stencils/extensions; mxgraph/mxClient.js defaults mxStencil,mxObjectCodec,mxStylesheetCodec,mxGraphView allowEval=false",
+    "retainedDynamicCode": "js/grapheditor/Graph.js:33678-33698 retains inactive eval.call path; app.min.js globalThis fallback and extensions.min.js setImmediate string/LINQ string-lambda constructors remain, not whitelisted by the local CSP",
+    "localFont": "js/diagramly/Editor.js:9561-9563 maps Architects Daughter to styles/fonts/ArchitectsDaughter-Regular.ttf; other default fonts are system fonts",
+    "precompiled": "js/app.min.js,js/shapes-14-6-5.min.js,js/stencils.min.js,js/extensions.min.js,math4/es5/drawio-mathjax.min.js present; no Java build required"
+  }
+}

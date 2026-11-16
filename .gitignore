@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.cache/
+*.vsix
+playwright-report/
+test-results/
+.vscode-test/
+.env*
+.ssh/
+id_ed25519*
+id_rsa*
+*.pem
+*.key
+*.p12
+*.pfx
+.minds/*
+!.minds/blobs/

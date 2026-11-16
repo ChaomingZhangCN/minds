@@ -1,0 +1,112 @@
+.minds-diagram {
+  --chart-surface: #fcfcfb;
+  --chart-ink: #0b0b0b;
+  --chart-secondary: #52514e;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --chart-series-1: #2a78d6;
+  --chart-series-2: #eb6834;
+  --chart-series-3: #1baf7a;
+  color: var(--chart-ink);
+  background: var(--chart-surface);
+  border: 1px solid var(--vscode-panel-border, var(--chart-grid));
+  border-radius: 8px;
+  margin: 12px 0;
+  font-family: var(--vscode-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  line-height: 1.5;
+  min-width: 0;
+  color-scheme: light;
+}
+body.vscode-dark .minds-diagram,
+body.vscode-high-contrast .minds-diagram,
+.minds-diagram[data-chart-theme="dark"] {
+  --chart-surface: #1a1a19;
+  --chart-ink: #ffffff;
+  --chart-secondary: #c3c2b7;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #383835;
+  --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
+  color-scheme: dark;
+}
+.diagram-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--chart-grid);
+}
+.diagram-toolbar strong { overflow-wrap: anywhere; min-width: 0; }
+.diagram-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.minds-diagram button {
+  font: inherit;
+  color: var(--vscode-button-secondaryForeground, var(--chart-ink));
+  background: var(--vscode-button-secondaryBackground, var(--chart-grid));
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.minds-diagram button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--chart-axis)); }
+.minds-diagram button[aria-pressed="true"],
+.minds-diagram button[type="submit"] {
+  background: var(--vscode-button-background, #2a78d6);
+  color: var(--vscode-button-foreground, white);
+}
+.minds-diagram button:disabled { opacity: 0.5; cursor: default; }
+.minds-diagram :is(button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, var(--chart-series-1));
+  outline-offset: 2px;
+}
+.chart-canvas { width: 100%; height: 380px; min-width: 0; }
+.chart-table-wrapper { overflow: auto; max-height: 420px; padding: 12px 16px; }
+.chart-table-wrapper[hidden] { display: none; }
+.chart-table-wrapper table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.chart-table-wrapper caption { text-align: left; color: var(--chart-secondary); padding-bottom: 8px; }
+.chart-table-wrapper :is(th, td) { border-bottom: 1px solid var(--chart-grid); padding: 6px 10px; text-align: left; overflow-wrap: anywhere; }
+.chart-table-wrapper th { color: var(--chart-secondary); position: sticky; top: 0; background: var(--chart-surface); }
+.chart-editor { padding: 16px; border-top: 1px solid var(--chart-grid); display: grid; gap: 12px; }
+.chart-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.chart-editor label { display: grid; gap: 4px; color: var(--chart-secondary); }
+.chart-editor :is(input, select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  background: var(--vscode-input-background, var(--chart-surface));
+  color: var(--vscode-input-foreground, var(--chart-ink));
+  border: 1px solid var(--vscode-input-border, var(--chart-axis));
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+.chart-editor textarea { resize: vertical; font-family: var(--vscode-editor-font-family, monospace); white-space: pre; }
+.diagram-error { margin: 12px 16px; color: var(--vscode-errorForeground, #d03b3b); white-space: pre-wrap; overflow-wrap: anywhere; }
+.diagram-hint { margin: 8px 16px; color: var(--chart-secondary); }
+.chart-editor .diagram-hint { margin: 0; }
+.minds-excalidraw { display: flex; flex-direction: column; height: min(85vh, 900px); min-height: 440px; }
+.excalidraw-canvas { flex: 1; min-height: 300px; position: relative; }
+.excalidraw-canvas > .excalidraw { height: 100%; }
+/* 0.18.1 has no UIOptions switch for the built-in online library sidebar. Both its
+   trigger and fallback sidebar are disabled; onChange also closes the library tab. */
+.minds-excalidraw .minds-disabled-library,
+.minds-excalidraw .minds-disabled-library-trigger { display: none !important; }
+@media (max-width: 500px) {
+  .diagram-toolbar { padding: 10px; }
+  .chart-canvas { height: 420px; }
+  .chart-editor { padding: 10px; }
+  .minds-excalidraw { height: 85vh; }
+}
+@media print {
+  .minds-chart .diagram-actions, .chart-editor { display: none; }
+  .minds-chart .chart-table-wrapper[hidden] { display: block; max-height: none; }
+  .chart-canvas { break-inside: avoid; }
+}
+@media (forced-colors: active) {
+  .minds-chart .chart-table-wrapper[hidden] { display: block; }
+  .minds-diagram { border: 1px solid CanvasText; }
+  .minds-diagram button { border: 1px solid ButtonText; }
+}
